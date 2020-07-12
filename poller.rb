@@ -128,7 +128,7 @@ def check_dashboard
       end
     }
     puts "New documents: #{unseen_docs}"
-    File.open($id_file, "w+") do |f|
+    File.open($id_file, "a") do |f|
       unseen_docs.each { |element| f.puts(element) }
     end
     if unseen_docs.length > 0
