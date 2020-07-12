@@ -15,6 +15,7 @@ config_file = YAML.load(File.read("config.yml"))
 proofed_dir = "#{ENV['HOME']}/.config/proofed"
 $cookie_file = "#{proofed_dir}/cookies"
 $id_file = "#{proofed_dir}/documents"
+$time_file = "#{proofed_dir}/documents_time"
 $last_update_time = Time.new.utc.iso8601
 
 $pushover_token = config_file[:pushover_token]
@@ -130,6 +131,9 @@ def check_dashboard
     puts "New documents: #{unseen_docs}"
     File.open($id_file, "a") do |f|
       unseen_docs.each { |element| f.puts(element) }
+    end
+    File.open($time_file, "a") do |f|
+      unseen_docs.each { |element| f.puts("#{Time.now.getutc} - #{element}") }
     end
     if unseen_docs.length > 0
       puts "Sending push notification"
