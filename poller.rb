@@ -58,9 +58,9 @@ def login
   puts "Logging in"
   loginResponse = $http.headers(:Cookie => $cookies.join("; "))
       .post('https://app.proofreadmyessay.co.uk/freelance', :form => {
-    :username => $proofed_user, 
-    :password => $proofed_password, 
-    :_csrfToken => csrf_token, 
+    :username => $proofed_user,
+    :password => $proofed_password,
+    :_csrfToken => csrf_token,
     :_method => "POST"
     }
   )
@@ -80,7 +80,7 @@ def login
   }
 
   puts "Storing cookies"
-  File.open($cookie_file, 'w') { 
+  File.open($cookie_file, 'w') {
     |file| file.puts($cookies)
   }
 
@@ -101,21 +101,21 @@ def check_dashboard
 
   dashboardResponse = $http.headers(:Cookie => $cookies.join("; "))
       .get('https://app.proofreadmyessay.co.uk/freelance/dashboard')
-  
-  if dashboardResponse.code != 200 
+
+  if dashboardResponse.code != 200
     puts "Error fetching dashboard"
     send_error_push("Error checking dashboard. Restart script?")
     exit
   end
-  
+
   @doc = Nokogiri::HTML(dashboardResponse.body.to_s)
   # saved_page = File.read("#{ENV['HOME']}/Downloads/Archive/index.html")
   # @doc = Nokogiri::HTML(saved_page)
   documents_count_string = @doc.css("div.queue-doc-num h4").text
-  
+
   document_count = documents_count_string["Documents in the queue: ".length].to_i
   puts "Documents: #{document_count}"
-  
+
   if document_count > 0
     # Check the IDs
     ids = File.readlines($id_file).map { |id| id.strip }
@@ -145,7 +145,7 @@ end
 def poll
 
   # Start polling
-  
+
   while true  do
     puts "Polling checkDocumentActivity"
     puts "Last update time: #{$last_update_time}"
@@ -154,10 +154,22 @@ def poll
       "X-Requested-With" => "XMLHttpRequest"
     )
       .get("https://app.proofreadmyessay.co.uk/freelance/freelancers/checkDocumentActivity", :params => { :time => $last_update_time })
-  
-    if pollResponse.code != 200
+
+    if pollResponse.code == 503
+      puts "503 occurred. Sleeping 1 minute"
+      send_error_push("Server down for maintenance. Retrying in 1 minute")
+      sleep 60
+      next
+    elsif pollResponse.code == 524 || pollResponse.code == 504
+      puts "Gateway timeout occurred. Either with cloudflare or proofed"
+      send_error_push("Gateway timeout occurred. Retrying in 1 minute")
+      sleep 60
+      next
+    elsif pollResponse.code != 200
       puts "Invalid response from poller"
+      puts "Response code: #{pollResponse.code}"
       send_error_push("Couldn't poll. Restart script?")
+      puts pollResponse.body.to_s
       exit
     end
 
@@ -178,10 +190,10 @@ def poll
 end
 
 def send_push
-  pushResponse = $http.post("https://api.pushover.net/1/messages.json", :form => { 
-    :token => $pushover_token, 
-    :user => $pushover_user, 
-    :message => "New document available", 
+  pushResponse = $http.post("https://api.pushover.net/1/messages.json", :form => {
+    :token => $pushover_token,
+    :user => $pushover_user,
+    :message => "New document available",
     :url => "https://app.proofreadmyessay.co.uk/freelance/dashboard",
     :device => $pushover_devices,
     :priority => 1
@@ -191,10 +203,10 @@ def send_push
 end
 
 def send_error_push(error)
-  pushResponse = $http.post("https://api.pushover.net/1/messages.json", :form => { 
-    :token => $pushover_token, 
-    :user => $pushover_user, 
-    :message => "Script error: #{error}", 
+  pushResponse = $http.post("https://api.pushover.net/1/messages.json", :form => {
+    :token => $pushover_token,
+    :user => $pushover_user,
+    :message => "Script error: #{error}",
     :url => "https://app.proofreadmyessay.co.uk/freelance/dashboard",
     :device => $pushover_error_devices
     })
@@ -218,7 +230,7 @@ if File.file?($cookie_file)
       poll()
     else
       exit
-    end  
+    end
   end
 else
   if login()
