@@ -124,21 +124,23 @@ def check_dashboard
     unseen_docs = []
     new_documents.each { |document|
       new_doc_id = document.css(".doc-id").text
-      puts new_doc_id
+      new_doc_word_count = document.css(".doc-id + td").text.match(/(\d+) words/).captures
+      puts "#{new_doc_id} #{new_doc_word_count}"
       unless ids.include? new_doc_id
-        unseen_docs << new_doc_id
+        unseen_docs << { :id => new_doc_id, :word_count => new_doc_word_count }
       end
     }
     puts "New documents: #{unseen_docs}"
     File.open($id_file, "a") do |f|
-      unseen_docs.each { |element| f.puts(element) }
+      unseen_docs.each { |element| f.puts(element[:id]) }
     end
     File.open($time_file, "a") do |f|
       unseen_docs.each { |element| f.puts("#{Time.now.getutc} - #{element}") }
     end
     if unseen_docs.length > 0
       puts "Sending push notification"
-      send_push()
+      doc_lengths = unseen_docs.map { |doc| doc[:word_count] }
+      send_push(doc_lengths)
     end
   end
 end
@@ -189,11 +191,11 @@ def poll
 
 end
 
-def send_push
+def send_push(word_counts = [])
   pushResponse = $http.post("https://api.pushover.net/1/messages.json", :form => {
     :token => $pushover_token,
     :user => $pushover_user,
-    :message => "New document available",
+    :message => "New document(s) available with lengths: #{word_counts} words",
     :url => "https://editor.getproofed.com/dashboard",
     :device => $pushover_devices,
     :priority => 1
