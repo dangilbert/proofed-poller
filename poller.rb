@@ -20,7 +20,8 @@ $last_update_time = Time.new.utc.iso8601
 
 $pushover_token = config_file[:pushover_token]
 $pushover_user = config_file[:pushover_user]
-$pushover_devices = config_file[:pushover_devices]
+$pushover_devices_siobhan = config_file[:pushover_devices_siobhan]
+$pushover_devices_rachel = config_file[:pushover_devices_rachel]
 $pushover_error_devices = config_file[:pushover_error_devices]
 
 $proofed_user = config_file[:proofed_username]
@@ -66,7 +67,7 @@ def login
   )
 
   if loginResponse.code != 302
-    puts "Login failed"
+    puts "Login failed - #{loginResponse.body}"
     return false
   end
 
@@ -121,26 +122,39 @@ def check_dashboard
     # Check the IDs
     ids = File.readlines($id_file).map { |id| id.strip }
     new_documents = @doc.css(".close-details")
-    unseen_docs = []
+    unseen_docs_siobhan = []
+    unseen_docs_rachel = []
     new_documents.each { |document|
       new_doc_id = document.css(".doc-id").text
       new_doc_word_count = document.css(".doc-id + td").text.match(/(\d+) words/).captures
       puts "#{new_doc_id} #{new_doc_word_count}"
       unless ids.include? new_doc_id
-        unseen_docs << { :id => new_doc_id, :word_count => new_doc_word_count }
+        if new_doc_word_count > 500
+          unseen_docs_siobhan << { :id => new_doc_id, :word_count => new_doc_word_count }
+        else
+          unseen_docs_rachel << { :id => new_doc_id, :word_count => new_doc_word_count }
+        end
       end
     }
     puts "New documents: #{unseen_docs}"
     File.open($id_file, "a") do |f|
-      unseen_docs.each { |element| f.puts(element[:id]) }
+      unseen_docs_siobhan.each { |element| f.puts(element[:id]) }
+      unseen_docs_rachel.each { |element| f.puts(element[:id]) }
     end
     File.open($time_file, "a") do |f|
-      unseen_docs.each { |element| f.puts("#{Time.now.getutc} - #{element}") }
+      unseen_docs_siobhan.each { |element| f.puts("#{Time.now.getutc} - #{element}") }
+      unseen_docs_rachel.each { |element| f.puts("#{Time.now.getutc} - #{element}") }
     end
-    if unseen_docs.length > 0
-      puts "Sending push notification"
+    if unseen_docs_siobhan.length > 0
+      puts "Sending push notification to Siobhan"
       doc_lengths = unseen_docs.map { |doc| doc[:word_count] }
-      send_push(doc_lengths)
+      send_push($pushover_devices_siobhan, doc_lengths)
+    end
+
+    if unseen_docs_rachel.length > 0
+      puts "Sending push notification to Rachel"
+      doc_lengths = unseen_docs.map { |doc| doc[:word_count] }
+      send_push($pushover_devices_rachel, doc_lengths)
     end
   end
 end
@@ -191,13 +205,17 @@ def poll
 
 end
 
-def send_push(word_counts = [])
+def send_push(pushover_device, word_counts = [])
+  if pushover_device.nil? || pushover_device.to_s.strip.empty?
+    puts "Device was empty. not sending push"
+    return
+  end
   pushResponse = $http.post("https://api.pushover.net/1/messages.json", :form => {
     :token => $pushover_token,
     :user => $pushover_user,
     :message => "New document(s) available with lengths: #{word_counts} words",
     :url => "https://editor.getproofed.com/dashboard",
-    :device => $pushover_devices,
+    :device => pushover_device,
     :priority => 1
     })
 
@@ -243,5 +261,5 @@ else
   end
 end
 
-# send_push()
+# send_push($pushover_devices_rachel, [500, 501])
 # send_error_push("Test!")
