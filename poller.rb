@@ -126,7 +126,7 @@ def check_dashboard
     unseen_docs_rachel = []
     new_documents.each { |document|
       new_doc_id = document.css(".doc-id").text
-      new_doc_word_count = document.css(".doc-id + td").text.match(/(\d+) words/).captures
+      new_doc_word_count = document.css(".doc-id + td").text.match(/(\d+) words/).captures[0].to_i
       puts "#{new_doc_id} #{new_doc_word_count}"
       unless ids.include? new_doc_id
         if new_doc_word_count > 500
@@ -136,7 +136,10 @@ def check_dashboard
         end
       end
     }
-    puts "New documents: #{unseen_docs}"
+    
+    puts "New documents Siobhan: #{unseen_docs_siobhan}"
+    puts "New documents Rachel: #{unseen_docs_rachel}"
+
     File.open($id_file, "a") do |f|
       unseen_docs_siobhan.each { |element| f.puts(element[:id]) }
       unseen_docs_rachel.each { |element| f.puts(element[:id]) }
@@ -147,13 +150,13 @@ def check_dashboard
     end
     if unseen_docs_siobhan.length > 0
       puts "Sending push notification to Siobhan"
-      doc_lengths = unseen_docs.map { |doc| doc[:word_count] }
+      doc_lengths = unseen_docs_siobhan.map { |doc| doc[:word_count] }
       send_push($pushover_devices_siobhan, doc_lengths)
     end
 
     if unseen_docs_rachel.length > 0
       puts "Sending push notification to Rachel"
-      doc_lengths = unseen_docs.map { |doc| doc[:word_count] }
+      doc_lengths = unseen_docs_rachel.map { |doc| doc[:word_count] }
       send_push($pushover_devices_rachel, doc_lengths)
     end
   end
