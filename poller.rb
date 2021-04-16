@@ -90,122 +90,139 @@ def login
 end
 
 def check_login_valid
-  puts "Fetching dashboard"
-  dashboardResponse = $http.headers(:Cookie => $cookies.join("; "))
-      .get('https://editor.getproofed.com/dashboard')
+  begin
+    puts "Fetching dashboard"
+    dashboardResponse = $http.headers(:Cookie => $cookies.join("; "))
+        .get('https://editor.getproofed.com/dashboard')
 
-  return dashboardResponse.code == 200
+    return dashboardResponse.code == 200
+  rescue => error
+    send_error_push(error.message)
+    raise
+  end
 end
 
 def check_dashboard
-  puts "Opening dashboard"
+  begin
+    puts "Opening dashboard"
 
-  dashboardResponse = $http.headers(:Cookie => $cookies.join("; "))
-      .get('https://editor.getproofed.com/dashboard')
+    dashboardResponse = $http.headers(:Cookie => $cookies.join("; "))
+        .get('https://editor.getproofed.com/dashboard')
 
-  if dashboardResponse.code != 200
-    puts "Error fetching dashboard"
-    puts "Status: #{dashboardResponse.status}"
-    send_error_push("Error checking dashboard. Restart script?")
-    exit
-  end
+    if dashboardResponse.code != 200
+      puts "Error fetching dashboard"
+      puts "Status: #{dashboardResponse.status}"
+      send_error_push("Error checking dashboard. Restart script?")
+      exit
+    end
 
-  @doc = Nokogiri::HTML(dashboardResponse.body.to_s)
-  # saved_page = File.read("#{ENV['HOME']}/Downloads/Archive/index.html")
-  # @doc = Nokogiri::HTML(saved_page)
-  documents_count_string = @doc.css("div.queue-doc-num h4").text
-  
-  document_count = documents_count_string["Documents in the queue: ".length].to_i
-  puts "Documents: #{document_count}"
-  
-  if document_count > 0
-    # Check the IDs
-    ids = File.readlines($id_file).map { |id| id.strip }
-    new_documents = @doc.css(".close-details")
-    unseen_docs_siobhan = []
-    unseen_docs_rachel = []
-    new_documents.each { |document|
-      new_doc_id = document.css(".doc-id").text
-      new_doc_word_count = document.css(".doc-id + td").text.match(/(\d+) words/).captures[0].to_i
-      puts "#{new_doc_id} #{new_doc_word_count}"
-      unless ids.include? new_doc_id
-        if new_doc_word_count > 500
-          unseen_docs_siobhan << { :id => new_doc_id, :word_count => new_doc_word_count }
-        else
-          unseen_docs_rachel << { :id => new_doc_id, :word_count => new_doc_word_count }
-        end
-      end
-    }
+    @doc = Nokogiri::HTML(dashboardResponse.body.to_s)
+    # saved_page = File.read("#{ENV['HOME']}/Downloads/Archive/index.html")
+    # @doc = Nokogiri::HTML(saved_page)
+    documents_count_string = @doc.css("div.queue-doc-num h4").text
     
-    puts "New documents Siobhan: #{unseen_docs_siobhan}"
-    puts "New documents Rachel: #{unseen_docs_rachel}"
+    document_count = documents_count_string["Documents in the queue: ".length].to_i
+    puts "Documents: #{document_count}"
+    
+    if document_count > 0
+      # Check the IDs
+      ids = File.readlines($id_file).map { |id| id.strip }
+      new_documents = @doc.css(".close-details")
+      unseen_docs_siobhan = []
+      unseen_docs_rachel = []
+      new_documents.each { |document|
+        new_doc_id = document.css(".doc-id").text
+        matches = document.css(".doc-id + td").text.match(/(\d+) words/)
+        if matches.nil? then
+          next
+        end
+        new_doc_word_count = matches.captures[0].to_i
+        puts "#{new_doc_id} #{new_doc_word_count}"
+        unless ids.include? new_doc_id
+          if new_doc_word_count > 500
+            unseen_docs_siobhan << { :id => new_doc_id, :word_count => new_doc_word_count }
+          else
+            unseen_docs_rachel << { :id => new_doc_id, :word_count => new_doc_word_count }
+          end
+        end
+      }
+      
+      puts "New documents Siobhan: #{unseen_docs_siobhan}"
+      puts "New documents Rachel: #{unseen_docs_rachel}"
 
-    File.open($id_file, "a") do |f|
-      unseen_docs_siobhan.each { |element| f.puts(element[:id]) }
-      unseen_docs_rachel.each { |element| f.puts(element[:id]) }
-    end
-    File.open($time_file, "a") do |f|
-      unseen_docs_siobhan.each { |element| f.puts("#{Time.now.getutc} - #{element}") }
-      unseen_docs_rachel.each { |element| f.puts("#{Time.now.getutc} - #{element}") }
-    end
-    if unseen_docs_siobhan.length > 0
-      puts "Sending push notification to Siobhan"
-      doc_lengths = unseen_docs_siobhan.map { |doc| doc[:word_count] }
-      send_push($pushover_devices_siobhan, doc_lengths)
-    end
+      File.open($id_file, "a") do |f|
+        unseen_docs_siobhan.each { |element| f.puts(element[:id]) }
+        unseen_docs_rachel.each { |element| f.puts(element[:id]) }
+      end
+      File.open($time_file, "a") do |f|
+        unseen_docs_siobhan.each { |element| f.puts("#{Time.now.getutc} - #{element}") }
+        unseen_docs_rachel.each { |element| f.puts("#{Time.now.getutc} - #{element}") }
+      end
+      if unseen_docs_siobhan.length > 0
+        puts "Sending push notification to Siobhan"
+        doc_lengths = unseen_docs_siobhan.map { |doc| doc[:word_count] }
+        send_push($pushover_devices_siobhan, doc_lengths)
+      end
 
-    if unseen_docs_rachel.length > 0
-      puts "Sending push notification to Rachel"
-      doc_lengths = unseen_docs_rachel.map { |doc| doc[:word_count] }
-      send_push($pushover_devices_rachel, doc_lengths)
+      if unseen_docs_rachel.length > 0
+        puts "Sending push notification to Rachel"
+        doc_lengths = unseen_docs_rachel.map { |doc| doc[:word_count] }
+        send_push($pushover_devices_rachel, doc_lengths)
+      end
     end
+  rescue => error
+    send_error_push(error.message)
+    raise
   end
 end
 
 def poll
+  begin
+    # Start polling
+    while true  do
+      puts "Polling checkDocumentActivity"
+      puts "Last update time: #{$last_update_time}"
+      pollResponse = $http.headers(
+        :Cookie => $cookies.join("; "),
+        "X-Requested-With" => "XMLHttpRequest"
+      )
+        .get("https://editor.getproofed.com/freelancers/checkDocumentActivity", :params => { :time => $last_update_time })
 
-  # Start polling
-  while true  do
-    puts "Polling checkDocumentActivity"
-    puts "Last update time: #{$last_update_time}"
-    pollResponse = $http.headers(
-      :Cookie => $cookies.join("; "),
-      "X-Requested-With" => "XMLHttpRequest"
-    )
-      .get("https://editor.getproofed.com/freelancers/checkDocumentActivity", :params => { :time => $last_update_time })
+      if pollResponse.code == 503
+        puts "503 occurred. Sleeping 1 minute"
+        send_error_push("Server down for maintenance. Retrying in 1 minute")
+        sleep 60
+        next
+      elsif pollResponse.code == 524 || pollResponse.code == 521 || pollResponse.code == 504
+        puts "Gateway timeout occurred. Either with cloudflare or proofed"
+        send_error_push("Gateway timeout occurred. Retrying in 1 minute")
+        sleep 60
+        next
+      elsif pollResponse.code != 200
+        puts "Invalid response from poller"
+        puts "Response code: #{pollResponse.code}"
+        send_error_push("Couldn't poll. Restart script?")
+        puts pollResponse.body.to_s
+        exit
+      end
 
-    if pollResponse.code == 503
-      puts "503 occurred. Sleeping 1 minute"
-      send_error_push("Server down for maintenance. Retrying in 1 minute")
-      sleep 60
-      next
-    elsif pollResponse.code == 524 || pollResponse.code == 521 || pollResponse.code == 504
-      puts "Gateway timeout occurred. Either with cloudflare or proofed"
-      send_error_push("Gateway timeout occurred. Retrying in 1 minute")
-      sleep 60
-      next
-    elsif pollResponse.code != 200
-      puts "Invalid response from poller"
-      puts "Response code: #{pollResponse.code}"
-      send_error_push("Couldn't poll. Restart script?")
-      puts pollResponse.body.to_s
-      exit
+      responseBody = JSON.parse(pollResponse.body.to_s)
+
+      puts "Changes: #{responseBody.to_s}"
+      puts "Changed: #{responseBody["status"]}"
+
+      if responseBody["status"]
+        check_dashboard()
+        $last_update_time = responseBody["currentTime"]
+        puts "Updated request time to: #{$last_update_time}"
+      end
+
+      sleep 10
     end
-
-    responseBody = JSON.parse(pollResponse.body.to_s)
-
-    puts "Changes: #{responseBody.to_s}"
-    puts "Changed: #{responseBody["status"]}"
-
-    if responseBody["status"]
-      check_dashboard()
-      $last_update_time = responseBody["currentTime"]
-      puts "Updated request time to: #{$last_update_time}"
-    end
-
-    sleep 10
+  rescue => error
+    send_error_push(error.message)
+    raise
   end
-
 end
 
 def send_push(pushover_device, word_counts = [])
