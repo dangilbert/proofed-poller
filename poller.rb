@@ -72,6 +72,7 @@ def login
   end
 
   loginCookie = loginResponse.headers["set-cookie"]
+  puts loginCookie
   $cookies = $cookies.map { |cookie|
     if cookie.include? "CAKEPHP"
       loginCookie
@@ -79,6 +80,10 @@ def login
       cookie
     end
   }
+
+  $cookies = $cookies.flatten.reject { |cookie|
+    cookie.include? "deleted"
+  }.drop(1)
 
   puts "Storing cookies"
   File.open($cookie_file, 'w') {
