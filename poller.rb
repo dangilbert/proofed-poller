@@ -10,24 +10,30 @@ gemfile do
   gem 'nokogiri'
 end
 
-config_file = YAML.load(File.read("config.yml"))
-
 proofed_dir = "#{ENV['HOME']}/.config/proofed"
 $cookie_file = "#{proofed_dir}/cookies"
 $id_file = "#{proofed_dir}/documents"
 $time_file = "#{proofed_dir}/documents_time"
 $last_update_time = Time.new.utc.iso8601
 
+default_config = {
+  :min_words => 500
+}
+
+config_file = default_config.merge(YAML.load(File.read("config.yml")))
+
 $pushover_token = config_file[:pushover_token]
 $pushover_user = config_file[:pushover_user]
-$pushover_devices_siobhan = config_file[:pushover_devices_siobhan]
-$pushover_devices_rachel = config_file[:pushover_devices_rachel]
+$pushover_devices = config_file[:pushover_devices]
 $pushover_error_devices = config_file[:pushover_error_devices]
+
+$min_words = config_file[:min_words]
 
 $proofed_user = config_file[:proofed_username]
 $proofed_password = config_file[:proofed_password]
 
 puts "Last update time: #{$last_update_time}"
+puts "Setting min word limit to: #{$min_words}"
 
 logger = Logger.new(STDOUT)
 $http = HTTP #.use(logging: {logger: logger})
@@ -133,8 +139,7 @@ def check_dashboard
       # Check the IDs
       ids = File.readlines($id_file).map { |id| id.strip }
       new_documents = @doc.css(".close-details")
-      unseen_docs_siobhan = []
-      unseen_docs_rachel = []
+      unseen_docs = []
       new_documents.each { |document|
         new_doc_id = document.css(".doc-id").text
         matches = document.css(".doc-id + td").text.match(/(\d+) words/)
@@ -144,35 +149,24 @@ def check_dashboard
         new_doc_word_count = matches.captures[0].to_i
         puts "#{new_doc_id} #{new_doc_word_count}"
         unless ids.include? new_doc_id
-          if new_doc_word_count > 500
-            unseen_docs_siobhan << { :id => new_doc_id, :word_count => new_doc_word_count }
-          else
-            unseen_docs_rachel << { :id => new_doc_id, :word_count => new_doc_word_count }
+          if new_doc_word_count > $min_words
+            unseen_docs << { :id => new_doc_id, :word_count => new_doc_word_count }
           end
         end
       }
       
-      puts "New documents Siobhan: #{unseen_docs_siobhan}"
-      puts "New documents Rachel: #{unseen_docs_rachel}"
+      puts "New documents: #{unseen_docs}"
 
       File.open($id_file, "a") do |f|
-        unseen_docs_siobhan.each { |element| f.puts(element[:id]) }
-        unseen_docs_rachel.each { |element| f.puts(element[:id]) }
+        unseen_docs.each { |element| f.puts(element[:id]) }
       end
       File.open($time_file, "a") do |f|
-        unseen_docs_siobhan.each { |element| f.puts("#{Time.now.getutc} - #{element}") }
-        unseen_docs_rachel.each { |element| f.puts("#{Time.now.getutc} - #{element}") }
+        unseen_docs.each { |element| f.puts("#{Time.now.getutc} - #{element}") }
       end
-      if unseen_docs_siobhan.length > 0
-        puts "Sending push notification to Siobhan"
-        doc_lengths = unseen_docs_siobhan.map { |doc| doc[:word_count] }
-        send_push($pushover_devices_siobhan, doc_lengths)
-      end
-
-      if unseen_docs_rachel.length > 0
-        puts "Sending push notification to Rachel"
-        doc_lengths = unseen_docs_rachel.map { |doc| doc[:word_count] }
-        send_push($pushover_devices_rachel, doc_lengths)
+      if unseen_docs.length > 0
+        puts "Sending push notification"
+        doc_lengths = unseen_docs.map { |doc| doc[:word_count] }
+        send_push($pushover_devices, doc_lengths)
       end
     end
   rescue => error
@@ -285,6 +279,3 @@ else
     exit
   end
 end
-
-# send_push($pushover_devices_rachel, [500, 501])
-# send_error_push("Test!")
