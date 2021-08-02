@@ -234,7 +234,7 @@ def poll
 end
 
 def send_push(word_counts = [])
-  message = "New document(s) available with lengths: #{word_counts} words.\n\nOpen #{$base_url}/dashboard"
+  message = "New document(s) available with lengths: #{word_counts} words."
   cmd = "apprise -v --title=\"#{message}\" --body=\"Open #{$base_url}/dashboard\" --config=apprise.yml --tag=documents"
   system(cmd)
 end
