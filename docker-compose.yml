@@ -1,0 +1,11 @@
+version: '3'
+services:
+  ruby:
+    image: ruby:2.6.6-alpine3.13
+    command: >
+        sh -c 'apk add expect build-base 
+        # && unbuffer ruby poller.rb 2>&1 
+        | tee -a proofed.log'
+    working_dir: /usr/app/
+    volumes:
+      - ./:/usr/app/
