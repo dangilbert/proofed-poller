@@ -12,7 +12,3 @@ In the case where a document appears on your dashboard it will send you a push n
     - The `documents` tagged URL will receive notifications when a document appears on your dashboard
     - The `system` tagged URL will receive notifications when something happens in the script, such as errors which may need your attention to resolve
 3. Run `docker-compose up` in the project root
-
-## TODO
-- Swap out pushover notifications for something like AppRise?
-- Make the poller more resilient to failures (wait 1 minute in the case of website changes and try again? 10 errors in a row causes it to stop and notify?)
