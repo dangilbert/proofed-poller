@@ -16,16 +16,13 @@ $id_file = "#{proofed_dir}/documents"
 $time_file = "#{proofed_dir}/documents_time"
 $last_update_time = Time.new.utc.iso8601
 
+$base_url = "https://editor.getproofed.com"
+
 default_config = {
-  :min_words => 500
+  :min_words => 0
 }
 
 config_file = default_config.merge(YAML.load(File.read("config.yml")))
-
-$pushover_token = config_file[:pushover_token]
-$pushover_user = config_file[:pushover_user]
-$pushover_devices = config_file[:pushover_devices]
-$pushover_error_devices = config_file[:pushover_error_devices]
 
 $min_words = config_file[:min_words]
 
@@ -53,7 +50,7 @@ def login
 
   # Get initial cookies
   puts "Fetching initial csrf cookies"
-  launchScreenResponse = $http.get('https://editor.getproofed.com/dashboard')
+  launchScreenResponse = $http.get("#{$base_url}/dashboard")
 
   $cookies = launchScreenResponse.headers["set-cookie"]
   csrf_cookie = $cookies.find { |cookie| cookie.include? "csrfToken" }
@@ -64,7 +61,7 @@ def login
   # Perform login
   puts "Logging in"
   loginResponse = $http.headers(:Cookie => $cookies.join("; "))
-      .post('https://editor.getproofed.com/', :form => {
+      .post("#{$base_url}", :form => {
     :username => $proofed_user,
     :password => $proofed_password,
     :_csrfToken => csrf_token,
@@ -104,7 +101,7 @@ def check_login_valid
   begin
     puts "Fetching dashboard"
     dashboardResponse = $http.headers(:Cookie => $cookies.join("; "))
-        .get('https://editor.getproofed.com/dashboard')
+        .get("#{$base_url}/dashboard")
 
     return dashboardResponse.code == 200
   rescue => error
@@ -118,13 +115,14 @@ def check_dashboard
     puts "Opening dashboard"
 
     dashboardResponse = $http.headers(:Cookie => $cookies.join("; "))
-        .get('https://editor.getproofed.com/dashboard')
+        .get("#{$base_url}/dashboard")
 
     if dashboardResponse.code != 200
       puts "Error fetching dashboard"
       puts "Status: #{dashboardResponse.status}"
-      send_error_push("Error checking dashboard. Restart script?")
-      exit
+      send_error_push("Error checking dashboard.")
+      sleep 60
+      return
     end
 
     @doc = Nokogiri::HTML(dashboardResponse.body.to_s)
@@ -166,7 +164,7 @@ def check_dashboard
       if unseen_docs.length > 0
         puts "Sending push notification"
         doc_lengths = unseen_docs.map { |doc| doc[:word_count] }
-        send_push($pushover_devices, doc_lengths)
+        send_push(doc_lengths)
       end
     end
   rescue => error
@@ -178,14 +176,15 @@ end
 def poll
   begin
     # Start polling
-    while true  do
+    error_count = 0
+    while error_count < 10  do
       puts "Polling checkDocumentActivity"
       puts "Last update time: #{$last_update_time}"
       pollResponse = $http.headers(
         :Cookie => $cookies.join("; "),
         "X-Requested-With" => "XMLHttpRequest"
       )
-        .get("https://editor.getproofed.com/freelancers/checkDocumentActivity", :params => { :time => $last_update_time })
+        .get("#{$base_url}/freelancers/checkDocumentActivity", :params => { :time => $last_update_time })
 
       if pollResponse.code == 503
         puts "503 occurred. Sleeping 1 minute"
@@ -211,9 +210,19 @@ def poll
       puts "Changed: #{responseBody["status"]}"
 
       if responseBody["status"]
-        check_dashboard()
-        $last_update_time = responseBody["currentTime"]
-        puts "Updated request time to: #{$last_update_time}"
+        begin
+          check_dashboard()
+          error_count = 0
+          $last_update_time = responseBody["currentTime"]
+          puts "Updated request time to: #{$last_update_time}"
+        rescue => error
+          message = "Error fetching the dashboard. Maybe there is a redeploy happening? Waiting 1 minute before resuming polling\n\n#{error.message}"
+          error_count += 1
+          puts message
+          send_error_push(message)
+          sleep 60
+          next
+        end
       end
 
       sleep 10
@@ -224,36 +233,22 @@ def poll
   end
 end
 
-def send_push(pushover_device, word_counts = [])
-  if pushover_device.nil? || pushover_device.to_s.strip.empty?
-    puts "Device was empty. not sending push"
-    return
-  end
-  pushResponse = $http.post("https://api.pushover.net/1/messages.json", :form => {
-    :token => $pushover_token,
-    :user => $pushover_user,
-    :message => "New document(s) available with lengths: #{word_counts} words",
-    :url => "https://editor.getproofed.com/dashboard",
-    :device => pushover_device,
-    :priority => 1
-    })
-
-    puts pushResponse.status
+def send_push(word_counts = [])
+  message = "New document(s) available with lengths: #{word_counts} words.\n\nOpen #{$base_url}/dashboard"
+  cmd = "apprise -v --title=\"#{message}\" --body=\"Open #{$base_url}/dashboard\" --config=apprise.yml --tag=documents"
+  system(cmd)
 end
 
 def send_error_push(error)
-  pushResponse = $http.post("https://api.pushover.net/1/messages.json", :form => { 
-    :token => $pushover_token, 
-    :user => $pushover_user, 
-    :message => "Script error: #{error}", 
-    :url => "https://editor.getproofed.com/dashboard",
-    :device => $pushover_error_devices
-    })
-
-    puts pushResponse.status
+  send_system_push("Script error", error)
 end
 
-send_error_push("Starting the Proofed polling service")
+def send_system_push(title, message)
+  cmd = "apprise -v --title=\"#{title}\" --body=\"#{message}\" --config=apprise.yml --tag=system"
+  system(cmd)
+end
+
+send_system_push("Starting the Proofed polling service.", "Open #{$base_url}/dashboard")
 
 # Check cookies
 if File.file?($cookie_file)

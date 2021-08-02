@@ -1,9 +1,4 @@
-:pushover_token: <pushovertoken>
-:pushover_user: <pushover user>
-:pushover_device: <pushover device for normal notifications>
-:pushover_error_device: <pushover device for error notifications>
+:proofed_username: <username for the proofed dashboard>
+:proofed_password: <password for the proofed dashboard>
 
 :min_words: <min document length in words to notify>
-
-:proofed_username:
-:proofed_password:

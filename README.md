@@ -6,8 +6,13 @@ In the case where a document appears on your dashboard it will send you a push n
 ## Setup
 
 1. Clone the repo
-2. Copy the `config.sample.yml` to `config.yml` and fill in the details for your proofed account and pushover account/device
+2. Copy the `config.sample.yml` to `config.yml` and fill in the details for your proofed account and minimum document length you wanted to be notified about
+3. Copy the `apprise.sample.yml` to `apprise.yml` and add the URLs for your devices on which you want to receive the notifications.
+    - You can use any notification platform that https://github.com/caronc/apprise supports
+    - The `documents` tagged URL will receive notifications when a document appears on your dashboard
+    - The `system` tagged URL will receive notifications when something happens in the script, such as errors which may need your attention to resolve
 3. Run `docker-compose up` in the project root
 
 ## TODO
 - Swap out pushover notifications for something like AppRise?
+- Make the poller more resilient to failures (wait 1 minute in the case of website changes and try again? 10 errors in a row causes it to stop and notify?)
