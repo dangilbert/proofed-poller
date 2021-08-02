@@ -253,6 +253,8 @@ def send_error_push(error)
     puts pushResponse.status
 end
 
+send_error_push("Starting the Proofed polling service")
+
 # Check cookies
 if File.file?($cookie_file)
 
