@@ -16,7 +16,7 @@ $id_file = "#{proofed_dir}/documents"
 $time_file = "#{proofed_dir}/documents_time"
 $last_update_time = Time.new.utc.iso8601
 
-$base_url = "https://editor.getproofed.com"
+$base_url = "https://editor.proofed.com"
 
 default_config = {
   :min_words => 0
@@ -50,24 +50,33 @@ def login
 
   # Get initial cookies
   puts "Fetching initial csrf cookies"
-  launchScreenResponse = $http.get("#{$base_url}/dashboard")
+  launchScreenResponse = $http.get("#{$base_url}")
 
   $cookies = launchScreenResponse.headers["set-cookie"]
-  csrf_cookie = $cookies.find { |cookie| cookie.include? "csrfToken" }
-  startSubstring = csrf_cookie.index('=') + 1
-  endSubstring = csrf_cookie.index(';') - csrf_cookie.index('=') - 1
-  csrf_token = csrf_cookie[startSubstring, endSubstring]
 
-  # Perform login
-  puts "Logging in"
-  loginResponse = $http.headers(:Cookie => $cookies.join("; "))
-      .post("#{$base_url}", :form => {
+  # Get csrf token from the html body
+  @doc = Nokogiri::HTML(launchScreenResponse.body.to_s)
+  csrf_token = @doc.at('input[name="_csrfToken"]').attr('value')
+
+  puts "CSRF Token: #{csrf_token}"
+  $cookies.push("csrfToken=#{csrf_token}")
+
+  payload = {
     :username => $proofed_user,
     :password => $proofed_password,
     :_csrfToken => csrf_token,
     :_method => "POST"
-    }
+  }
+
+  puts payload
+
+  # Perform login
+  puts "Logging in"
+  loginResponse = $http.headers(:Cookie => $cookies.join("; "))
+      .post("#{$base_url}", :form => payload
   )
+
+  puts loginResponse.code
 
   if loginResponse.code != 302
     puts "Login failed - #{loginResponse.body}"
