@@ -22,7 +22,7 @@ default_config = {
   :min_words => 0
 }
 
-$min_words = ENV['MIN_WORDS'] || 0
+$min_words = ENV['MIN_WORDS'].to_i || 0
 
 $proofed_user = ENV['PROOFED_USERNAME']
 $proofed_password = ENV['PROOFED_PASSWORD']
