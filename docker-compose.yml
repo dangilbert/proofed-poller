@@ -1,8 +1,13 @@
-version: '3'
+version: "3"
 services:
   proofed:
-    build: . 
+    image: dangilbert/proofed-poller
+    # environment:
+    #   - PROOFED_USERNAME=
+    #   - PROOFED_PASSWORD=
+    #   - MIN_WORDS=1500
+    #   - DOCUMENTS_CHANNELS="<apprise_channel_1> <apprise_channel_2>"
+    #   - SYSTEM_CHANNELS="<apprise_channel_1> <apprise_channel_2>"
+    # env_file: .env
     command: unbuffer ruby poller.rb 2>&1 | tee -a proofed.log
     working_dir: /usr/app/
-    volumes:
-      - ./:/usr/app/

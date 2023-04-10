@@ -1,14 +1,21 @@
 # A poller and notifier for the Proofed editor platform
 
 This project will check the proofed editor dashboard for your account every 10 seconds (same interval as the website).
-In the case where a document appears on your dashboard it will send you a push notification
+In the case where a document appears on your dashboard it will send you a push notification via apprise
 
 ## Setup
 
-1. Clone the repo
-2. Copy the `config.sample.yml` to `config.yml` and fill in the details for your proofed account and minimum document length you wanted to be notified about
-3. Copy the `apprise.sample.yml` to `apprise.yml` and add the URLs for your devices on which you want to receive the notifications.
-    - You can use any notification platform that https://github.com/caronc/apprise supports
-    - The `documents` tagged URL will receive notifications when a document appears on your dashboard
-    - The `system` tagged URL will receive notifications when something happens in the script, such as errors which may need your attention to resolve
-3. Run `docker-compose up` in the project root
+### Docker compose
+
+- Copy the `docker-compose.yml` to where you want to launch the service from.
+- Either:
+  - Copy the `.env.sample` to `.env` and fill in your details. Then uncomment the `env_file` line in `docker-compose.yml`
+  - OR Update `docker-compose.yml` with the required environment variables
+- Run `docker compose up`
+
+### Apprise config
+
+The service uses Apprise to send notifications and any service supported by apprise should work.
+
+To see how to create the service URLs to be used in the DOCUMENTS_CHANNELS and SYSTEM_CHANNELS environment variables, see here:  
+https://github.com/caronc/apprise

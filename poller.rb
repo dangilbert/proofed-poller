@@ -22,12 +22,13 @@ default_config = {
   :min_words => 0
 }
 
-config_file = default_config.merge(YAML.load(File.read("config.yml")))
+$min_words = ENV['MIN_WORDS'] || 0
 
-$min_words = config_file[:min_words]
+$proofed_user = ENV['PROOFED_USERNAME']
+$proofed_password = ENV['PROOFED_PASSWORD']
 
-$proofed_user = config_file[:proofed_username]
-$proofed_password = config_file[:proofed_password]
+$documents_notification_channels = ENV["DOCUMENTS_CHANNELS"]
+$system_notification_channels = ENV["SYSTEM_CHANNELS"]
 
 puts "Last update time: #{$last_update_time}"
 puts "Setting min word limit to: #{$min_words}"
@@ -244,7 +245,7 @@ end
 
 def send_push(word_counts = [])
   message = "New document(s) available with lengths: #{word_counts} words."
-  cmd = "apprise -v --title=\"#{message}\" --body=\"Open #{$base_url}/dashboard\" --config=apprise.yml --tag=documents"
+  cmd = "apprise -v --title=\"#{message}\" --body=\"Open #{$base_url}/dashboard\" #{$system_notification_channels}"
   system(cmd)
 end
 
@@ -253,7 +254,7 @@ def send_error_push(error)
 end
 
 def send_system_push(title, message)
-  cmd = "apprise -v --title=\"#{title}\" --body=\"#{message}\" --config=apprise.yml --tag=system"
+  cmd = "apprise -v --title=\"#{title}\" --body=\"#{message}\" #{$system_notification_channels}"
   system(cmd)
 end
 

@@ -2,3 +2,4 @@
 apprise.yml
 config.yml
 proofed.log
+.env
