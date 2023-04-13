@@ -245,7 +245,7 @@ end
 
 def send_push(word_counts = [])
   message = "New document(s) available with lengths: #{word_counts} words."
-  cmd = "apprise -v --title=\"#{message}\" --body=\"Open #{$base_url}/dashboard\" #{$system_notification_channels}"
+  cmd = "apprise -v --title=\"#{message}\" --body=\"Open #{$base_url}/dashboard\" #{$documents_notification_channels}"
   system(cmd)
 end
 
@@ -253,11 +253,18 @@ def send_error_push(error)
   send_system_push("Script error", error)
 end
 
+def send_init_push()
+  message = "Starting the proofed dashboard poller."
+  cmd = "apprise -v --body=\"#{message}\" #{$documents_notification_channels}"
+  system(cmd)
+end
+
 def send_system_push(title, message)
   cmd = "apprise -v --title=\"#{title}\" --body=\"#{message}\" #{$system_notification_channels}"
   system(cmd)
 end
 
+send_init_push()
 send_system_push("Starting the Proofed polling service.", "Open #{$base_url}/dashboard")
 
 # Check cookies
